@@ -87,6 +87,7 @@ img{max-width:100%}
 .card .revrow .rq button{border:0;background:var(--sunk);color:var(--ink);width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer}
 .card .revrow .rq button.plus{background:linear-gradient(135deg,#7B93FF,#E06AAE);color:#fff}
 .card .revrow .rq b{background:linear-gradient(135deg,#7B93FF,#E06AAE);color:#fff;font-family:var(--f-mono);font-size:12px;border-radius:999px;min-width:22px;height:22px;display:grid;place-items:center;padding:0 5px}
+.card .thumb.ph .snap{margin-top:6px;border:0;border-radius:999px;padding:7px 12px;background:rgba(255,255,255,.92);color:#141B2D;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
 .logout{border:0;background:none;color:var(--muted);font:inherit;font-size:12px;cursor:pointer;text-decoration:underline}
 </style>
 </head>
@@ -107,6 +108,7 @@ img{max-width:100%}
   <button data-tab="trade"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 4 3 8l4 4M3 8h13M17 20l4-4-4-4M21 16H8"/></svg>Trocas</button>
   <button data-tab="mine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="12" height="15" rx="2"/><path d="M9 3h10a2 2 0 0 1 2 2v12"/></svg>Minhas</button>
 </nav>
+<input type="file" id="snapFile" accept="image/*" capture="environment" hidden>
 <input type="file" id="importFile" accept=".csv,text/csv" hidden>
 <input type="file" id="camFile" accept="image/*" capture="environment" hidden>
 <input type="file" id="galFile" accept="image/*" multiple hidden>

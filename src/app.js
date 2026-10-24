@@ -165,7 +165,7 @@ function cardTile(setId, c, showSet, mode, rev) {
   const s = S.setById[setId]; const pid = setId + '-' + no; const L = priceLinks(setId, c);
   const dim = mode === 'view' ? false : mode === 'in' ? (qAll > 0 && !(TR.get[setId + '|' + key])) : (!qAll && !mode);
   const photoKey = setId + '|' + no;
-  const img = S.photoBust[photoKey] ? `<img class="thumb" alt="" src="/api/photo?k=${encodeURIComponent(photoKey)}&v=${S.photoBust[photoKey]}" data-ph="${esc(name)}">` : `<img class="thumb" loading="lazy" decoding="async" alt="" src="${imgUrl(setId, no, 'pt')}" data-fb="${imgUrl(setId, no, 'en')}" data-fb2="/api/photo?k=${encodeURIComponent(photoKey)}" data-ph="${esc(name)}">`;
+  const img = S.photoBust[photoKey] ? `<img class="thumb" alt="" src="/api/photo?k=${encodeURIComponent(photoKey)}&v=${S.photoBust[photoKey]}" data-ph="${esc(name)}">` : `<img class="thumb" loading="lazy" decoding="async" alt="" src="${imgUrl(setId, no, 'pt')}" data-fb="${imgUrl(setId, no, 'en')}" data-fb2="/api/photo?k=${encodeURIComponent(photoKey)}" data-ph="${esc(name)}" data-k="${esc(photoKey)}">`;
   const tapAttr = mode === 'view' ? 'data-noop="1"' : `data-${mode === 'in' ? 'tin' : mode === 'out' ? 'tout' : 'add'}="${esc(setId)}|${esc(mode ? key : no)}"`;
   const label = `<span class="no">${esc(no)}${s && /^\d+$/.test(no) ? '/' + s.o : ''}${showSet ? ' · ' + esc(s.a || s.id) : ''}</span><span class="cn">${esc(name)}</span>${showSet === 'name' && s ? `<span class="sn">${esc(s.n)}</span>` : ''}<span class="rr">${esc(RAR[rar] || rar || (cat === 'T' ? 'Treinador' : cat === 'E' ? 'Energia' : ''))}${mode && rev ? ' · ✨ Brilhante' : ''}</span>`;
   const qtyBtns = k => { const q = o[k] || 0; return `${q ? `<button data-sub="${esc(setId)}|${esc(k)}" aria-label="Tirar uma">−</button><b class="${q > 1 ? 'rep' : ''}">${q}</b>` : ''}<button class="plus" data-add="${esc(setId)}|${esc(k)}" aria-label="Somar uma">+</button>`; };
@@ -180,7 +180,7 @@ document.addEventListener('error', e => {
   const t = e.target; if (t.tagName !== 'IMG' || !t.classList.contains('thumb')) return;
   if (t.dataset.fb) { t.src = t.dataset.fb; t.dataset.fb = ''; return; }
   if (t.dataset.fb2) { t.src = t.dataset.fb2; t.dataset.fb2 = ''; return; }
-  const ph = document.createElement('div'); ph.className = 'thumb ph'; ph.innerHTML = `<span>${esc(t.dataset.ph || '')}</span><small>sem imagem no catálogo</small>`;
+  const ph = document.createElement('div'); ph.className = 'thumb ph'; ph.innerHTML = `<span>${esc(t.dataset.ph || '')}</span><small>sem imagem no catálogo</small>${t.dataset.k ? `<button class="snap" data-snap="${esc(t.dataset.k)}">📷 Tirar foto</button>` : ''}`;
   t.closest('.card') && t.closest('.card').classList.add('noimg'); t.replaceWith(ph);
 }, true);
 function priceText(pid, rev) { const v = priceBrl(pid, rev); if (v != null) return brl(v); const p = S.prices[pid]; return p && !p.usd && !p.eur ? 'sem preço' : ''; }
@@ -392,7 +392,7 @@ async function runScan(file, T = SC, view = 'scan', append = false) {
     }
     if ((j.cards || []).length > 1) { try { await readNumbers(file, j.cards, SC); } catch (e) { if (e.name === 'AbortError') throw e; SC.warn = (SC.warn || []).concat('Foto ' + (SC.photoNo || 1) + ': não consegui ler os números (' + String(e && (e.detail || e.message) || e).slice(0, 120) + '). As versões foram escolhidas pela coleção mais provável.'); } }
     await allReady;
-    const got = (j.cards || []).map(r => { const read = { name: String(r.name || ''), number: String(r.number || ''), total: String(r.total || ''), set_code: String(r.set_code || ''), language: String(r.language || ''), finish: String(r.finish || '') }; const cands = matchCard(read); return { read, cands, conf: cands.conf || 0, photo: SC.photoNo || 1 }; });
+    const got = (j.cards || []).map(r => { const read = { name: String(r.name || ''), number: String(r.number || ''), total: String(r.total || ''), set_code: String(r.set_code || ''), language: String(r.language || ''), finish: String(r.finish || '') }; const cands = matchCard(read); return { read, cands, conf: cands.conf || 0, photo: SC.photoNo || 1, file, box: (j.cards || []).length > 1 && Array.isArray(r.box) ? r.box : null }; });
     const ctx = buildCtx((append ? (SC.found || []) : []).concat(got));
     for (const f of got) if (f.conf < 7) { const c2 = matchCard(f.read, ctx); f.cands = c2; f.conf = c2.conf || 0; }
     SC.found = append ? (SC.found || []).concat(got) : got;
@@ -412,14 +412,33 @@ async function runBatch(files) {
 }
 
 
-async function savePhoto(key, dataUrl) {
+async function savePhoto(key, src, box, quiet) {
   try {
-    const img = new Image(); img.src = dataUrl; await img.decode();
-    const k = Math.min(1, 360 / img.height); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
-    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-    await api('/api/photo', { method: 'PUT', body: JSON.stringify({ k: key, image: cv.toDataURL('image/jpeg', 0.8) }) });
-    S.photoBust[key] = Date.now(); toast('Sua foto virou a imagem desta carta'); render();
-  } catch { }
+    const bmp = await createImageBitmap(src instanceof Blob ? src : await (await fetch(src)).blob());
+    let sx = 0, sy = 0, sw = bmp.width, sh = bmp.height;
+    if (box && box.length === 4) { const [l, t, r, b] = box.map(Number); const pw = (r - l) * bmp.width * 0.02, phh = (b - t) * bmp.height * 0.02; sx = Math.max(0, l * bmp.width - pw); sy = Math.max(0, t * bmp.height - phh); sw = Math.min(bmp.width - sx, (r - l) * bmp.width + 2 * pw); sh = Math.min(bmp.height - sy, (b - t) * bmp.height + 2 * phh); }
+    const k = Math.min(1, 480 / sh); const cv = document.createElement('canvas'); cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
+    cv.getContext('2d').drawImage(bmp, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+    let q = 0.82, url = cv.toDataURL('image/jpeg', q); while (url.length > 250000 && q > 0.4) { q -= 0.1; url = cv.toDataURL('image/jpeg', q); }
+    await api('/api/photo', { method: 'PUT', body: JSON.stringify({ k: key, image: url }) });
+    S.photoBust[key] = Date.now(); if (!quiet) { toast('Foto salva como imagem da carta'); render(); }
+    return true;
+  } catch { if (!quiet) toast('Não consegui salvar a foto'); return false; }
+}
+// after a scan, store a cropped photo for every added card the catalog has no image for
+async function autoPhotos(list) {
+  let n = 0;
+  for (const f of list) {
+    if (!f.file || !f.cands.length) continue; const [id, c] = f.cands[0]; const key = id + '|' + c[0];
+    if (S.photoBust[key] || !(await hasNoImage(id, c[0]))) continue;
+    if (await savePhoto(key, f.file, f.box, true)) n++;
+  }
+  if (n) { toast(n + ' foto(s) salvas para cartas sem imagem'); render(); }
+}
+const imgCheck = {};
+function hasNoImage(id, no) {
+  const k = id + '|' + no; if (k in imgCheck) return imgCheck[k];
+  return imgCheck[k] = new Promise(res => { let i = 0; const urls = [imgUrl(id, no, 'pt'), imgUrl(id, no, 'en')]; const im = new Image(); im.onload = () => res(false); im.onerror = () => { if (++i < urls.length) im.src = urls[i]; else res(true); }; im.src = urls[0]; });
 }
 /* ---------- trades ---------- */
 const TR = { give: {}, get: {}, found: null, img: null, busy: false, err: '', ctl: null, q: '', confirm: false, step: 'friend', scanFor: 'friend' };
@@ -629,10 +648,10 @@ document.addEventListener('click', async e => {
   if (t.dataset.set) { const id = t.dataset.set; S.from = S.view === 'set' ? S.from : S.view; go('set', { setId: id, filter: 'all', q: '' }); if (!S.cards[id]) { await loadCards(id); render(); } return; }
   if (t.dataset.more) { S.showAllSeries[t.dataset.more] = !S.showAllSeries[t.dataset.more]; render(); return; }
   if (t.dataset.filter) { S.filter = t.dataset.filter; render(); return; }
-  if (t.dataset.add && S.view === 'scan' && SC.found && SC.found.length === 1 && SC.img && t.closest('.card')?.classList.contains('noimg')) savePhoto(t.dataset.add, SC.img);
-  if (t.dataset.add && S.view === 'scan' && SC.found) { const f = SC.found.find(x => x.cands.length && x.cands[0][0] + '|' + x.cands[0][1][0] === t.dataset.add.replace(/~r$/, '') && !x.added); if (f) f.added = true; }
+    if (t.dataset.add && S.view === 'scan' && SC.found) { const f = SC.found.find(x => x.cands.length && x.cands[0][0] + '|' + x.cands[0][1][0] === t.dataset.add.replace(/~r$/, '') && !x.added); if (f) { f.added = true; autoPhotos([f]); } }
   if (t.dataset.add || t.dataset.sub) { const [id, no] = (t.dataset.add || t.dataset.sub).split('|'); bump(id, no, t.dataset.add ? 1 : -1); const y = window.scrollY; if (S.view === 'search') renderResults(); else render(); window.scrollTo(0, y); return; }
-  if (t.dataset.usephoto) { if (SC.img) savePhoto(t.dataset.usephoto, SC.img); return; }
+  if (t.dataset.usephoto) { const f = SC.found && SC.found.find(x => x.cands.length && x.cands[0][0] + '|' + x.cands[0][1][0] === t.dataset.usephoto); if (f && f.file) savePhoto(t.dataset.usephoto, f.file, f.box); return; }
+  if (t.dataset.snap) { S.snapKey = t.dataset.snap; $('#snapFile').click(); return; }
   if (t.dataset.msort) { S.mineSort = t.dataset.msort; render(); return; }
   if (t.dataset.mfilter) { S.mineFilter = t.dataset.mfilter; render(); return; }
   if (t.dataset.go) { go(t.dataset.go); return; }
@@ -658,7 +677,7 @@ document.addEventListener('click', async e => {
   if (t.id === 'camBtn') { $('#camFile').click(); return; }
   if (t.id === 'galBtn') { $('#galFile').click(); return; }
   if (t.id === 'stopBtn') { if (SC.batch) SC.batch.stop = true; SC.ctl && SC.ctl.abort(); return; }
-  if (t.id === 'addAllBtn') { let n = 0; SC.found.forEach(f => { if (f.cands.length && !f.added) { const [id, c] = f.cands[0]; bump(id, scanKey(f, c), 1); f.added = true; n++; } }); toast(n + ' cartas adicionadas'); render(); return; }
+  if (t.id === 'addAllBtn') { let n = 0; const just = []; SC.found.forEach(f => { if (f.cands.length && !f.added) { const [id, c] = f.cands[0]; bump(id, scanKey(f, c), 1); f.added = true; n++; just.push(f); } }); toast(n + ' cartas adicionadas'); render(); autoPhotos(just); return; }
   if (t.id === 'exportBtn') { exportCsv(); return; }
   if (t.id === 'importBtn') { $('#importFile').click(); return; }
 });
@@ -683,6 +702,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'trq') { TR.q = e.target.value; clearTimeout(qT); qT = setTimeout(renderTradeSearch, 250); }
   if (e.target.id === 'gq') { S.gq = e.target.value; clearTimeout(qT); qT = setTimeout(renderResults, 250); }
 });
+$('#snapFile').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f && S.snapKey) savePhoto(S.snapKey, f); });
 $('#importFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importCsv(f); e.target.value = ''; });
 ['#camFile', '#galFile'].forEach(sel => $(sel).addEventListener('change', e => { const files = [...e.target.files].slice(0, 40); const f = files[0]; e.target.value = ''; if (!f) return; if (S.view === 'trade') { const T = TR.scanFor === 'mine' ? TM : TR; if (!T.busy) runScan(f, T, 'trade'); } else if (!SC.busy) { if (files.length > 1) runBatch(files); else runScan(f); } }));
 
