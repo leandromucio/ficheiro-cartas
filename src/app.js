@@ -180,7 +180,8 @@ function cardTile(setId, c, showSet, mode, rev) {
   const dim = mode === 'view' ? false : mode === 'in' ? (qAll > 0 && !(TR.get[setId + '|' + key])) : (!qAll && !mode);
   const photoKey = setId + '|' + no;
   const img = S.photoBust[photoKey] ? `<img class="thumb" alt="" data-k="${esc(photoKey)}" src="/api/photo?k=${encodeURIComponent(photoKey)}&v=${S.photoBust[photoKey]}" data-ph="${esc(name)}">` : `<img class="thumb" loading="lazy" decoding="async" alt="" src="${imgUrl(setId, no, 'pt')}" data-fb="${imgUrl(setId, no, 'en')}" data-fb2="/api/photo?k=${encodeURIComponent(photoKey)}&c=2" data-ph="${esc(name)}" data-k="${esc(photoKey)}">`;
-  const tapAttr = mode === 'view' ? 'data-noop="1"' : `data-${mode === 'in' ? 'tin' : mode === 'out' ? 'tout' : 'add'}="${esc(setId)}|${esc(mode ? key : no)}"`;
+  // em Minhas tocar na carta nao soma (so os botoes - +): evita copia acidental
+  const tapAttr = mode === 'view' || mode === 'mine' ? 'data-noop="1"' : `data-${mode === 'in' ? 'tin' : mode === 'out' ? 'tout' : 'add'}="${esc(setId)}|${esc(mode ? key : no)}"`;
   const label = `<span class="no">${esc(no)}${s && /^\d+$/.test(no) ? '/' + s.o : ''}${showSet ? ' · ' + esc(s.a || s.id) : ''}</span><span class="cn">${esc(name)}</span>${showSet === 'name' && s ? `<span class="sn">${esc(s.n)}</span>` : ''}<span class="rr">${esc(RAR[rar] || rar || (cat === 'T' ? 'Treinador' : cat === 'E' ? 'Energia' : ''))}${mode && rev ? ' · ✨ Brilhante' : ''}</span>`;
   const qtyBtns = k => { const q = o[k] || 0; return `${q ? `<button data-sub="${esc(setId)}|${esc(k)}" aria-label="Tirar uma">−</button><b class="${q > 1 ? 'rep' : ''}">${q}</b>` : ''}<button class="plus" data-add="${esc(setId)}|${esc(k)}" aria-label="Somar uma">+</button>`; };
   const revRow = !mode && hasRev ? `<span class="revrow"><span class="rl">✨ Brilhante</span><span class="val" data-pid="${esc(pid)}" data-rev="1">${priceText(pid, true)}</span><span class="rq">${qtyBtns(no + REV)}</span></span>` : '';
