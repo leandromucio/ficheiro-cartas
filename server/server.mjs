@@ -12,7 +12,7 @@ const PUBLIC = path.join(ROOT, 'public');
 const DATA = process.env.DATA_DIR || '/data';
 const PORT = Number(process.env.PORT || 3077);
 const SECRET = process.env.SECRET || '';
-const AKEY = process.env.ANTHROPIC_API_KEY || '';
+let AKEY = process.env.ANTHROPIC_API_KEY || '';
 const INVITE = process.env.INVITE_CODE || '';
 const MODELS = (process.env.SCAN_MODELS || 'claude-sonnet-5-5,claude-sonnet-4-5').split(',');
 const DAY = 86_400_000;
@@ -43,7 +43,7 @@ async function currentUser(req) {
   const [uid, exp] = v.split('|'); if (!uid || Number(exp) < Date.now()) return null;
   const u = (await users())[uid]; return u ? { id: uid, ...u } : null;
 }
-const pub = u => ({ id: u.id, email: u.email, name: u.name || '', confirmedAt: u.created });
+const pub = u => ({ id: u.id, email: u.email, name: u.name || '', confirmedAt: u.created, owner: !!u.owner });
 const attempts = new Map();
 function rateLimited(key, max = 10, win = 15 * 60_000) {
   const now = Date.now(); const a = (attempts.get(key) || []).filter(t => now - t < win); a.push(now); attempts.set(key, a); return a.length > max;
@@ -217,6 +217,23 @@ async function auth(req, res, route) {
   send(res, 404, { error: 'rota' });
 }
 
+/* ---------- owner settings ---------- */
+async function settings(req, res, u) {
+  if (!u.owner) return send(res, 403, { error: 'só o dono' });
+  if (req.method === 'GET') return send(res, 200, { hasKey: !!AKEY, keyHint: AKEY ? AKEY.slice(0, 10) + '…' + AKEY.slice(-4) : '', invite: INVITE });
+  if (req.method === 'POST') {
+    const b = await body(req, 10_000); const k = String(b.anthropicKey || '').trim();
+    if (k && !/^sk-ant-[\w-]{20,}$/.test(k)) return send(res, 400, { error: 'Chave inválida: deve começar com sk-ant-' });
+    if (k) {
+      const t = await fetch('https://api.anthropic.com/v1/models', { headers: { 'x-api-key': k, 'anthropic-version': '2023-06-01' }, signal: AbortSignal.timeout(15_000) }).catch(() => null);
+      if (t && t.status === 401) return send(res, 400, { error: 'A Anthropic recusou essa chave (401). Confira se copiou inteira.' });
+    }
+    AKEY = k; await writeJSON(p('settings.json'), { anthropicKey: k }); try { await fs.chmod(p('settings.json'), 0o600); } catch { }
+    return send(res, 200, { hasKey: !!AKEY, keyHint: AKEY ? AKEY.slice(0, 10) + '…' + AKEY.slice(-4) : '' });
+  }
+  send(res, 405, { error: 'método' });
+}
+
 /* ---------- router ---------- */
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
@@ -227,6 +244,7 @@ const server = http.createServer(async (req, res) => {
       const u = await currentUser(req); if (!u) return send(res, 401, { error: 'login' });
       if (url.pathname === '/api/collection') return await collection(req, res, u);
       if (url.pathname === '/api/photo') return await photo(req, res, u, url);
+      if (url.pathname === '/api/settings') return await settings(req, res, u);
       if (url.pathname === '/api/scan' && req.method === 'POST') return await scan(req, res, u);
       return send(res, 404, { error: 'rota' });
     }
@@ -245,5 +263,6 @@ if (process.argv[2] === 'reset-password') {
   const all = await users(); for (const k in all) console.log(all[k].email, all[k].created, all[k].owner ? '(dono)' : ''); process.exit(0);
 } else {
   await fs.mkdir(DATA, { recursive: true });
+  if (!AKEY) { const st = await readJSON(p('settings.json'), {}); if (st && st.anthropicKey) AKEY = st.anthropicKey; }
   server.listen(PORT, () => console.log('Fichário ouvindo na porta', PORT));
 }

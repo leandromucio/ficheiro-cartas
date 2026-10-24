@@ -561,10 +561,27 @@ function applyTrade() {
   toast('Troca registrada'); render(); window.scrollTo(0, 0);
 }
 
+/* ---------- owner settings (self-hosted) ---------- */
+async function fillOwner(msg, err) {
+  const box = $('#ownerPanel'); if (!box) return;
+  let st; try { st = await api('/api/settings'); } catch { box.hidden = true; return; }
+  box.innerHTML = `<b>Configuração do dono</b>
+  <p>Scan por foto: ${st.hasKey ? '<b style="color:var(--good)">ativo</b> · chave ' + esc(st.keyHint) : '<b style="color:var(--warn)">desativado</b> · cole a chave da API da Anthropic'}</p>
+  <form id="keyForm" style="display:grid;gap:8px"><input id="akey" type="password" placeholder="sk-ant-..." autocomplete="off" style="border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:var(--r);padding:11px;font:inherit;font-size:16px"><button class="btn">${st.hasKey ? 'Trocar chave' : 'Salvar chave'}</button></form>
+  ${msg ? `<div class="msg ${err ? 'err' : ''}">${esc(msg)}</div>` : ''}
+  ${st.invite ? `<p>Código de convite para a família: <b style="font-family:var(--f-mono)">${esc(st.invite)}</b></p>` : ''}`;
+}
+document.addEventListener('submit', async e => {
+  if (e.target.id !== 'keyForm') return; e.preventDefault();
+  const k = $('#akey').value.trim(); const b = e.target.querySelector('button'); b.disabled = true; b.textContent = 'Testando a chave…';
+  try { await api('/api/settings', { method: 'POST', body: JSON.stringify({ anthropicKey: k }) }); fillOwner('Chave salva. O scan já está ativo.'); }
+  catch (er) { fillOwner(er.message, true); }
+});
 /* ---------- backup ---------- */
 function renderBackup() {
   const t = totals();
   return `<div class="panel"><b>Onde fica salvo</b><p>Sua coleção fica salva na sua conta (${esc(S.user && S.user.email)}). Entre com o mesmo email em qualquer aparelho e ela aparece igual.</p></div>
+  ${S.user && S.user.owner ? `<div class="panel" id="ownerPanel"><b>Configuração do dono</b><p>Carregando…</p></div>` : ''}
   <div class="panel"><b>Exportar coleção</b><p>Gera uma planilha (CSV) com ${t.u} cartas e as quantidades.</p><button class="btn" id="exportBtn">Exportar CSV</button></div>
   <div class="panel"><b>Importar coleção</b><p>Restaura um CSV exportado daqui ou da versão anterior do Fichário (a que rodava dentro do Claude). As quantidades do arquivo substituem as atuais das mesmas cartas.</p><button class="btn ghost" id="importBtn">Escolher arquivo CSV</button></div>`;
 }
@@ -594,7 +611,7 @@ function render() {
   else if (S.view === 'search') { $('#title').textContent = 'Buscar carta'; if (!$('#gq')) main.innerHTML = renderSearch(); renderResults(); }
   else if (S.view === 'scan') { $('#title').textContent = 'Escanear'; main.innerHTML = renderScan(); }
   else if (S.view === 'mine') { $('#title').textContent = 'Minhas cartas'; main.innerHTML = renderMine(); fillMine(); }
-  else if (S.view === 'backup') { $('#title').textContent = 'Backup'; main.innerHTML = renderBackup(); }
+  else if (S.view === 'backup') { $('#title').textContent = 'Backup'; main.innerHTML = renderBackup(); fillOwner(); }
   else if (S.view === 'trade') { $('#title').textContent = 'Trocas'; main.innerHTML = renderTrade(); }
   else { $('#title').textContent = 'Fichário de Cartas'; main.innerHTML = renderHome(); }
 }
