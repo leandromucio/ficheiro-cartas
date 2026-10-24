@@ -167,7 +167,7 @@ function cardTile(setId, c, showSet, mode, rev) {
   const s = S.setById[setId]; const pid = setId + '-' + no; const L = priceLinks(setId, c);
   const dim = mode === 'view' ? false : mode === 'in' ? (qAll > 0 && !(TR.get[setId + '|' + key])) : (!qAll && !mode);
   const photoKey = setId + '|' + no;
-  const img = S.photoBust[photoKey] ? `<img class="thumb" alt="" src="/api/photo?k=${encodeURIComponent(photoKey)}&v=${S.photoBust[photoKey]}" data-ph="${esc(name)}">` : `<img class="thumb" loading="lazy" decoding="async" alt="" src="${imgUrl(setId, no, 'pt')}" data-fb="${imgUrl(setId, no, 'en')}" data-fb2="/api/photo?k=${encodeURIComponent(photoKey)}" data-ph="${esc(name)}" data-k="${esc(photoKey)}">`;
+  const img = S.photoBust[photoKey] ? `<img class="thumb" alt="" data-k="${esc(photoKey)}" src="/api/photo?k=${encodeURIComponent(photoKey)}&v=${S.photoBust[photoKey]}" data-ph="${esc(name)}">` : `<img class="thumb" loading="lazy" decoding="async" alt="" src="${imgUrl(setId, no, 'pt')}" data-fb="${imgUrl(setId, no, 'en')}" data-fb2="/api/photo?k=${encodeURIComponent(photoKey)}" data-ph="${esc(name)}" data-k="${esc(photoKey)}">`;
   const tapAttr = mode === 'view' ? 'data-noop="1"' : `data-${mode === 'in' ? 'tin' : mode === 'out' ? 'tout' : 'add'}="${esc(setId)}|${esc(mode ? key : no)}"`;
   const label = `<span class="no">${esc(no)}${s && /^\d+$/.test(no) ? '/' + s.o : ''}${showSet ? ' · ' + esc(s.a || s.id) : ''}</span><span class="cn">${esc(name)}</span>${showSet === 'name' && s ? `<span class="sn">${esc(s.n)}</span>` : ''}<span class="rr">${esc(RAR[rar] || rar || (cat === 'T' ? 'Treinador' : cat === 'E' ? 'Energia' : ''))}${mode && rev ? ' · ✨ Brilhante' : ''}</span>`;
   const qtyBtns = k => { const q = o[k] || 0; return `${q ? `<button data-sub="${esc(setId)}|${esc(k)}" aria-label="Tirar uma">−</button><b class="${q > 1 ? 'rep' : ''}">${q}</b>` : ''}<button class="plus" data-add="${esc(setId)}|${esc(k)}" aria-label="Somar uma">+</button>`; };
@@ -177,6 +177,16 @@ function cardTile(setId, c, showSet, mode, rev) {
   <span class="px">${!mode && hasRev ? '<span class="rl">Normal</span>' : ''}<span class="val" data-pid="${esc(pid)}" data-rev="${mode && rev ? 1 : 0}">${priceText(pid, mode && rev)}</span><a href="${L.liga}" target="_blank" rel="noopener">Liga</a><a href="${L.tcg}" target="_blank" rel="noopener">TCGplayer</a></span>
   ${revRow}
   ${mode === 'view' ? '' : mode ? tradeQty(setId, key, mode) : `<span class="qty">${qtyBtns(no)}</span>`}</div>`;
+}
+// foto propria (servida por /api/photo) ganha o botao de girar
+document.addEventListener('load', e => {
+  const t = e.target; if (t.tagName !== 'IMG' || !t.classList.contains('thumb') || !t.dataset.k || !/\/api\/photo\?/.test(t.currentSrc || t.src)) return;
+  const card = t.closest('.card'); if (!card || card.querySelector('.rot')) return;
+  const b = document.createElement('button'); b.className = 'rot'; b.dataset.rot = t.dataset.k; b.setAttribute('aria-label', 'Girar foto'); b.textContent = '↻'; card.appendChild(b);
+}, true);
+async function rotatePhoto(key) {
+  try { const r = await fetch('/api/photo?k=' + encodeURIComponent(key) + '&v=' + Date.now(), { credentials: 'same-origin' }); if (!r.ok) throw 0; await savePhoto(key, await r.blob(), null, true, 90); render(); }
+  catch { toast('Não consegui girar a foto'); }
 }
 document.addEventListener('error', e => {
   const t = e.target; if (t.tagName !== 'IMG' || !t.classList.contains('thumb')) return;
@@ -414,13 +424,17 @@ async function runBatch(files) {
 }
 
 
-async function savePhoto(key, src, box, quiet) {
+// rot: undefined = automatico (foto deitada vira em pe), 90 = girar 90 graus no sentido horario
+async function savePhoto(key, src, box, quiet, rot) {
   try {
-    const bmp = await createImageBitmap(src instanceof Blob ? src : await (await fetch(src)).blob());
+    const bmp = await createImageBitmap(src instanceof Blob ? src : await (await fetch(src)).blob(), { imageOrientation: 'from-image' });
     let sx = 0, sy = 0, sw = bmp.width, sh = bmp.height;
     if (box && box.length === 4) { const [l, t, r, b] = box.map(Number); const pw = (r - l) * bmp.width * 0.02, phh = (b - t) * bmp.height * 0.02; sx = Math.max(0, l * bmp.width - pw); sy = Math.max(0, t * bmp.height - phh); sw = Math.min(bmp.width - sx, (r - l) * bmp.width + 2 * pw); sh = Math.min(bmp.height - sy, (b - t) * bmp.height + 2 * phh); }
-    const k = Math.min(1, 480 / sh); const cv = document.createElement('canvas'); cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
-    cv.getContext('2d').drawImage(bmp, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+    const turn = rot === 90 || (rot === undefined && !box && sw > sh * 1.1);
+    const k = Math.min(1, 480 / (turn ? sw : sh)); const w = Math.round(sw * k), h = Math.round(sh * k);
+    const cv = document.createElement('canvas'); cv.width = turn ? h : w; cv.height = turn ? w : h; const g = cv.getContext('2d');
+    if (turn) { g.translate(cv.width, 0); g.rotate(Math.PI / 2); }
+    g.drawImage(bmp, sx, sy, sw, sh, 0, 0, w, h);
     let q = 0.82, url = cv.toDataURL('image/jpeg', q); while (url.length > 250000 && q > 0.4) { q -= 0.1; url = cv.toDataURL('image/jpeg', q); }
     await api('/api/photo', { method: 'PUT', body: JSON.stringify({ k: key, image: url }) });
     S.photoBust[key] = Date.now(); if (!quiet) { toast('Foto salva como imagem da carta'); render(); }
@@ -653,6 +667,7 @@ document.addEventListener('click', async e => {
     if (t.dataset.add && S.view === 'scan' && SC.found) { const f = SC.found.find(x => x.cands.length && x.cands[0][0] + '|' + x.cands[0][1][0] === t.dataset.add.replace(/~r$/, '') && !x.added); if (f) { f.added = true; autoPhotos([f]); } }
   if (t.dataset.add || t.dataset.sub) { const [id, no] = (t.dataset.add || t.dataset.sub).split('|'); bump(id, no, t.dataset.add ? 1 : -1); const y = window.scrollY; if (S.view === 'search') renderResults(); else render(); window.scrollTo(0, y); return; }
   if (t.dataset.usephoto) { const f = SC.found && SC.found.find(x => x.cands.length && x.cands[0][0] + '|' + x.cands[0][1][0] === t.dataset.usephoto); if (f && f.file) savePhoto(t.dataset.usephoto, f.file, f.box); return; }
+  if (t.dataset.rot) { rotatePhoto(t.dataset.rot); return; }
   if (t.dataset.snap) { S.snapKey = t.dataset.snap; $('#snapFile').click(); return; }
   if (t.dataset.msort) { S.mineSort = t.dataset.msort; render(); return; }
   if (t.dataset.mfilter) { S.mineFilter = t.dataset.mfilter; render(); return; }
