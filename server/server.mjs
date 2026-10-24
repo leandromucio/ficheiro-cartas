@@ -148,14 +148,15 @@ Rules:
 - "set_code": the 2-4 letter set abbreviation printed near the number (e.g. "SVI", "PAL", "OBF", "MEW"), "" if none is printed.
 - "name": the card name exactly as printed, including suffixes like ex, V, VMAX, GX.
 - "box": where the card is in image 1, as fractions of the image width/height: [left, top, right, bottom].
-- "finish": "reverse" when the card surface OUTSIDE the artwork (text box, borders) is shiny/holographic foil (reverse holo; the collector number is often printed in white on these), otherwise "normal".
+- "finish": "reverse" or "normal". Reverse holo cards have a shiny/holographic foil surface OUTSIDE the artwork (text box and borders) and their small rarity symbol next to the collector number is printed BLACK with a white outline (it can look hollow, like ○). Normal cards have a matte text box and the rarity symbol is a solid WHITE or light shape (●). The rarity-symbol color is the most reliable cue; use the foil shine to confirm.
 - "language": two-letter code of the card's printed language (en, pt, ja, ...).
 - The card name is the most reliable field; read it carefully, letter by letter. Cards may be printed in Portuguese; Pokémon names are the same in every language.
 - Count the cards first and return exactly one object per card.
 - Do not guess values you cannot read: an empty string is better than a wrong number or set code. Return [] if no card is visible.`;
 const NUM_PROMPT = `This image is a vertical stack of strips. Each strip is the enlarged bottom edge of one Pokémon TCG card, and starts with a white label holding its index (1, 2, 3...).
 For each strip, read the collector number printed on the card (e.g. "092/132", "TG05/TG30", "SVP 044") and the 2-4 letter set code printed next to it (e.g. "MEG", "PFL", "PAL"); old cards may have no set code.
-Reply with only a JSON array: [{"i":1,"number":"092","total":"132","set_code":"MEG"}]. Use "" for anything you cannot read; never guess.`;
+Also report "finish": "reverse" if the small rarity symbol next to the number is BLACK with a white outline (hollow-looking) or the strip surface is shiny foil, "normal" if the symbol is solid white/light on a matte surface, "" if unsure.
+Reply with only a JSON array: [{"i":1,"number":"092","total":"132","set_code":"MEG","finish":"normal"}]. Use "" for anything you cannot read; never guess.`;
 async function scan(req, res, u) {
   if (!AKEY) return send(res, 503, { error: 'IA indisponível neste servidor (falta ANTHROPIC_API_KEY)' });
   if (rateLimited('scan:' + u.id, 120, 60 * 60_000)) return send(res, 429, { error: 'muitos scans' });

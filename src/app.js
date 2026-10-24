@@ -370,6 +370,7 @@ async function readNumbers(file, cards, T) {
     const s = strips[Number(r.i) - 1]; if (!s) continue; const card = s.x.c;
     if (r.number) { card.number = String(r.number); card.total = String(r.total || ''); }
     if (r.set_code) card.set_code = String(r.set_code);
+    if (r.finish === 'reverse' || r.finish === 'normal') card.finish = r.finish;
   }
 }
 async function runScan(file, T = SC, view = 'scan', append = false) {
