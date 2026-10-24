@@ -14,6 +14,7 @@ function toast(msg) { const t = document.createElement('div'); t.className = 'to
 function setSync(t) { $('#syncState').textContent = t ? '· ' + t : ''; }
 const REV = '~r'; const baseNo = k => String(k).replace(/~r$/, ''); const isRev = k => /~r$/.test(k);
 const qtyOf = (id, no) => { const o = S.owned[id] || {}; return (o[no] || 0) + (o[no + REV] || 0); };
+const haveTxt = (id, no) => { const o = S.owned[id] || {}, n = o[no] || 0, r = o[no + REV] || 0; return r ? (n ? `${n} normal + ${r} ✨ brilhante` : `${r} ✨ brilhante`) : String(n); };
 function ownedCount(id) { const o = S.owned[id]; if (!o) return { u: 0, c: 0, r: 0 }; const seen = new Set(); let c = 0, r = 0; for (const k in o) { const q = o[k]; if (q > 0) { seen.add(baseNo(k)); c += q; if (q > 1) r += q - 1; } } return { u: seen.size, c, r }; }
 function totals() { let u = 0, c = 0, r = 0, st = 0; for (const id in S.owned) { const x = ownedCount(id); u += x.u; c += x.c; r += x.r; if (x.u) st++; } return { u, c, r, st }; }
 
@@ -290,10 +291,10 @@ function renderScan() {
 function scanResultTile(f, i, single) {
   const r = f.read;
   if (!f.cands.length) return `<div class="candwrap"><span class="tag" style="color:var(--muted)">Não encontrada</span><div class="card miss"><span class="stripe"></span><span class="tap"><span class="cn">${esc(r.name || 'Ilegível')}</span><span class="rr">${esc([r.number && (r.number + (r.total ? '/' + r.total : '')), r.set_code].filter(Boolean).join(' · '))}${r.language && !/^(en|pt|es|fr|de|it)/i.test(r.language) ? ' · idioma ' + esc(r.language) + ' fora do catálogo' : ''}</span></span></div></div>`;
-  const [id, c] = f.cands[0]; const have = (S.owned[id] || {})[c[0]] || 0;
+  const [id, c] = f.cands[0]; const have = qtyOf(id, c[0]);
   const alts = f.cands.slice(1).map(([i2, c2]) => `<option value="${esc(i2 + '|' + c2[0])}">${esc((S.setById[i2].a || i2) + ' ' + c2[0] + ' · ' + c2[1])}</option>`).join('');
   const fin = f.read.finish === 'reverse' && c[6] !== 0 ? '<span class="tag" style="color:var(--accent)">✨ Lida como brilhante</span>' : '';
-  const tag = fin + (f.added ? '<span class="tag">✓ Adicionada</span>' : f.conf < 7 ? '<span class="tag" style="color:var(--warn)">Confira a versão</span>' : have ? `<span class="tag" style="color:var(--warn)">Você já tem ${have}</span>` : '<span class="tag">Nova</span>');
+  const tag = fin + (f.added ? '<span class="tag">✓ Adicionada</span>' : f.conf < 7 ? '<span class="tag" style="color:var(--warn)">Confira a versão</span>' : have ? `<span class="tag" style="color:var(--warn)">Você já tem ${haveTxt(id, c[0])}</span>` : '<span class="tag">Nova</span>');
   const lido = `<span class="lido">Lido: ${esc([r.name, r.number && (r.number + (r.total ? '/' + r.total : '')), r.set_code].filter(Boolean).join(' · ') || '—')}</span>`;
   return `<div class="candwrap">${tag}${lido}${cardTile(id, c, 'name')}${alts ? `<select class="altsel" data-salt="${i}"><option value="">Outra versão?</option>${alts}</select>` : ''}${single ? `<button class="usephoto" data-usephoto="${esc(id + '|' + c[0])}">Usar minha foto como imagem</button>` : ''}</div>`;
 }
@@ -424,16 +425,16 @@ async function runBatch(files) {
 }
 
 
-// rot: undefined = automatico (foto deitada vira em pe), 90 = girar 90 graus no sentido horario
+// rot: undefined = automatico (foto deitada gira 90 anti-horario, celular de lado), 90 = girar 90 horario (botao)
 async function savePhoto(key, src, box, quiet, rot) {
   try {
     const bmp = await createImageBitmap(src instanceof Blob ? src : await (await fetch(src)).blob(), { imageOrientation: 'from-image' });
     let sx = 0, sy = 0, sw = bmp.width, sh = bmp.height;
     if (box && box.length === 4) { const [l, t, r, b] = box.map(Number); const pw = (r - l) * bmp.width * 0.02, phh = (b - t) * bmp.height * 0.02; sx = Math.max(0, l * bmp.width - pw); sy = Math.max(0, t * bmp.height - phh); sw = Math.min(bmp.width - sx, (r - l) * bmp.width + 2 * pw); sh = Math.min(bmp.height - sy, (b - t) * bmp.height + 2 * phh); }
-    const turn = rot === 90 || (rot === undefined && !box && sw > sh * 1.1);
+    const cw = rot === 90, turn = cw || (rot === undefined && !box && sw > sh * 1.1);
     const k = Math.min(1, 480 / (turn ? sw : sh)); const w = Math.round(sw * k), h = Math.round(sh * k);
     const cv = document.createElement('canvas'); cv.width = turn ? h : w; cv.height = turn ? w : h; const g = cv.getContext('2d');
-    if (turn) { g.translate(cv.width, 0); g.rotate(Math.PI / 2); }
+    if (turn && cw) { g.translate(cv.width, 0); g.rotate(Math.PI / 2); } else if (turn) { g.translate(0, cv.height); g.rotate(-Math.PI / 2); }
     g.drawImage(bmp, sx, sy, sw, sh, 0, 0, w, h);
     let q = 0.82, url = cv.toDataURL('image/jpeg', q); while (url.length > 250000 && q > 0.4) { q -= 0.1; url = cv.toDataURL('image/jpeg', q); }
     await api('/api/photo', { method: 'PUT', body: JSON.stringify({ k: key, image: url }) });
@@ -539,7 +540,7 @@ function altSelect(f, i, which) {
 function friendTile(f, i) {
   if (!f.cands.length) return `<div class="candwrap"><span class="tag" style="color:var(--muted)">Não encontrada</span><div class="card miss"><span class="stripe"></span><span class="tap"><span class="cn">${esc(f.read.name || 'Ilegível')}</span><span class="rr">Procure pelo nome na busca acima</span></span></div></div>`;
   const [id, c] = f.cands[0]; const have = qtyOf(id, c[0]); const rv = isRev(scanKey(f, c));
-  const verdict = have ? `<div class="verdict have">Você já tem ${have}</div>` : `<div class="verdict need">Você NÃO tem esta carta</div>`;
+  const verdict = have ? `<div class="verdict have">Você já tem ${haveTxt(id, c[0])}</div>` : `<div class="verdict need">Você NÃO tem esta carta</div>`;
   return `<div class="candwrap">${verdict}${cardTile(id, c, 'name', 'view', rv)}${altSelect(f, i, 'TR')}
     <div class="ask"><span>Quer trocar?</span><button class="btn" data-want="${i}">Sim</button><button class="btn ghost" data-skip="${i}">Não</button></div></div>`;
 }
