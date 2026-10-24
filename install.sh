@@ -34,15 +34,15 @@ ok "código em $SRC ($(git -C "$SRC" rev-parse --short HEAD))"
 say "3/6 Configuração"
 mkdir -p "$DATA" && chown -R 1000:1000 "$DATA"
 if [ ! -f "$ENVF" ]; then
-  KEY=""
-  if [ -r /dev/tty ]; then
+  KEY="${ANTHROPIC_API_KEY:-}"
+  if [ -z "$KEY" ] && [ -r /dev/tty ]; then
     printf 'Cole a sua chave da API da Anthropic (começa com sk-ant-, não aparece na tela; Enter para pular): ' > /dev/tty
     IFS= read -rs KEY < /dev/tty || true; echo > /dev/tty
   fi
-  INV=$(tr -dc 'A-Z0-9' </dev/urandom | head -c 6)
+  INV=$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n' | tr a-f A-F)
   umask 077
   cat > "$ENVF" <<EOF
-SECRET=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 48)
+SECRET=$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')
 ANTHROPIC_API_KEY=$KEY
 INVITE_CODE=$INV
 EOF
@@ -63,7 +63,7 @@ ok "app rodando em 127.0.0.1:$PORT"
 
 say "5/6 Publicando em https://$DOMAIN"
 PROXY=none
-listener() { ss -ltnp 2>/dev/null | grep -E "[:.]$1 " | head -1; }
+listener() { ss -ltnp 2>/dev/null | grep -E "[:.]$1 " | head -1 || true; }
 L443="$(listener 443)"; L80="$(listener 80)"
 if   echo "$L443$L80" | grep -q nginx;   then PROXY=nginx
 elif echo "$L443$L80" | grep -q caddy;   then PROXY=caddy
