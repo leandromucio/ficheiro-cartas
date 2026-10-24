@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2E4BD6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fichário">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<title>Fichário de Cartas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500;700&display=swap">
+/*OLDCSS*/
+<style>
+*{box-sizing:border-box}
+html{color-scheme:light}
+:root{padding-top:env(safe-area-inset-top,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+.card{grid-template-rows:auto 1fr auto}
+.card .stripe{grid-row:1/4}
+.card .thumb{grid-column:2;display:block;width:100%;aspect-ratio:245/337;object-fit:cover;background:var(--sunk)}
+.card.miss .thumb{filter:grayscale(1);opacity:.35}
+.card .px{grid-column:2;display:flex;flex-wrap:wrap;gap:4px 10px;padding:0 10px 8px 9px;font-size:11px;align-items:baseline}
+.card .px a{color:var(--accent);text-decoration:none;font-weight:700}
+.card .px .val{font-family:var(--f-mono);font-size:12px;color:var(--ink);font-weight:700;margin-right:auto}
+.card .tap{border:0;background:none;color:inherit;font:inherit;text-align:left;padding:8px 10px 4px 9px;cursor:pointer;display:flex;flex-direction:column;gap:2px;min-width:0}
+.qty{top:8px;right:8px}
+.qty button{background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.auth{max-width:380px;margin:8vh auto 0;display:grid;gap:12px}
+.auth h1{font-family:var(--f-display);font-weight:800;font-size:32px;margin:0;letter-spacing:-.02em}
+.auth p{margin:0;color:var(--muted)}
+.auth label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+.auth input{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:var(--r);padding:12px;font:inherit;font-size:16px}
+.auth .row{display:flex;gap:8px;flex-wrap:wrap}
+.auth .link{border:0;background:none;color:var(--accent);font:inherit;padding:4px 0;cursor:pointer;text-align:left}
+.msg{background:var(--sunk);border-radius:var(--r);padding:10px 12px;font-size:14px}
+.msg.err{color:#C0362C}
+.value{background:var(--surface);border-radius:var(--r);padding:14px;margin-bottom:12px;display:grid;gap:4px}
+.value .big{font-family:var(--f-mono);font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
+.value .sub{font-size:12px;color:var(--muted)}
+.toprow{display:flex;align-items:center;gap:8px}
+.card.want{border:1px solid var(--good)}
+.tb{position:absolute;left:12px;top:8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:3px 7px;border-radius:999px;z-index:1}
+.tb.need{background:var(--good);color:#fff}
+.tb.have{background:var(--surface);color:var(--muted);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tradebar{position:sticky;top:calc(env(safe-area-inset-top,0px) + 58px);z-index:4;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--surface);border-radius:var(--r);padding:10px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.tradebar div{display:grid;gap:2px;text-align:center}
+.tradebar .sub{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.tradebar b{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums}
+.tradebar b.pos,.needtxt{color:var(--good)} .tradebar b.neg{color:#C0362C}
+.altsel{width:100%;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:6px;font:inherit;font-size:13px}
+.qty button.plus{background:var(--accent);color:var(--accent-ink)}
+.qty{gap:6px}
+.qty button{width:30px;height:30px;font-size:18px}
+.stats .stat{border:0;font:inherit;color:inherit;cursor:pointer;display:grid;gap:2px;align-content:start;padding:12px 8px}
+.stats .stat:active{transform:scale(.97)}
+.stats .stat b{font-size:22px}
+.stats .stat span{font-size:11px;color:var(--ink);font-weight:700;letter-spacing:.04em}
+.stats .stat i{font-style:normal;font-size:11px;color:var(--muted)}
+.stats .stat:nth-child(2) b{color:var(--warn)}
+.stats .stat:nth-child(4) b{color:var(--good);font-size:18px}
+.card .thumb.ph{display:grid;place-content:center;gap:6px;text-align:center;padding:12px;background:linear-gradient(160deg,var(--tc),var(--sunk) 75%);color:#fff;aspect-ratio:245/337}
+.card .thumb.ph span{font-family:var(--f-display);font-weight:800;font-size:16px;line-height:1.15;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+.card .thumb.ph small{font-size:10px;opacity:.85;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+.usephoto{display:none;border:0;background:var(--sunk);color:var(--accent);font:inherit;font-weight:700;font-size:13px;border-radius:8px;padding:8px;cursor:pointer}
+.candwrap:has(.card.noimg) .usephoto{display:block}
+.card .sn{font-size:12px;color:var(--accent);font-weight:700;line-height:1.2}
+.lido{font-size:11px;color:var(--muted);font-family:var(--f-mono);overflow-wrap:anywhere}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:12px}
+.steps button{border:0;background:var(--sunk);color:var(--muted);font:inherit;font-size:12px;font-weight:700;padding:9px 4px;border-radius:8px;cursor:pointer}
+.steps button.on{background:var(--accent);color:var(--accent-ink)}
+.verdict{font-size:13px;font-weight:800;padding:6px 10px;border-radius:8px;text-align:center}
+.verdict.need{background:var(--good);color:#fff}
+.verdict.have{background:var(--sunk);color:var(--ink)}
+.verdict.warn{background:var(--warn);color:#fff}
+.ask{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ask span{font-weight:700;font-size:14px;margin-right:auto}
+.ask .btn{padding:9px 14px}
+.card .revrow{grid-column:2;display:flex;align-items:center;gap:8px;padding:0 10px 8px 9px;font-size:11px;flex-wrap:wrap}
+.card .rl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.card .revrow .rl{color:var(--accent)}
+.card .revrow .val{font-family:var(--f-mono);font-size:12px;font-weight:700;color:var(--ink)}
+.card .revrow .rq{margin-left:auto;display:flex;align-items:center;gap:6px}
+.card .revrow .rq button{border:0;background:var(--sunk);color:var(--ink);width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer}
+.card .revrow .rq button.plus{background:linear-gradient(135deg,#7B93FF,#E06AAE);color:#fff}
+.card .revrow .rq b{background:linear-gradient(135deg,#7B93FF,#E06AAE);color:#fff;font-family:var(--f-mono);font-size:12px;border-radius:999px;min-width:22px;height:22px;display:grid;place-items:center;padding:0 5px}
+.logout{border:0;background:none;color:var(--muted);font:inherit;font-size:12px;cursor:pointer;text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top" id="topbar" hidden>
+    <button class="back" id="back" hidden aria-label="Voltar">‹</button>
+    <h1 id="title">Fichário de Cartas</h1>
+    <div class="who"><span id="who"></span><br><button class="logout" id="logoutBtn">Sair</button></div>
+  </header>
+  <main id="main"><p class="empty">Abrindo o fichário…</p></main>
+  <footer id="foot" hidden>Catálogo, imagens e preços: TCGdex (TCGplayer e Cardmarket). <span id="syncState" class="sync"></span></footer>
+</div>
+<nav class="tabs" id="tabs" aria-label="Seções" hidden>
+  <button data-tab="home" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18"/></svg>Coleções</button>
+  <button data-tab="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg>Buscar</button>
+  <button data-tab="scan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><rect x="8" y="7" width="8" height="10" rx="1"/></svg>Escanear</button>
+  <button data-tab="trade"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 4 3 8l4 4M3 8h13M17 20l4-4-4-4M21 16H8"/></svg>Trocas</button>
+  <button data-tab="mine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="12" height="15" rx="2"/><path d="M9 3h10a2 2 0 0 1 2 2v12"/></svg>Minhas</button>
+</nav>
+<input type="file" id="importFile" accept=".csv,text/csv" hidden>
+<input type="file" id="camFile" accept="image/*" capture="environment" hidden>
+<input type="file" id="galFile" accept="image/*" multiple hidden>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
