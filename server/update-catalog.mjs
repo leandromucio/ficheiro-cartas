@@ -29,17 +29,24 @@ async function get(url, optional) {
 }
 async function pool(items, n, fn) { const out = []; let i = 0; await Promise.all(Array.from({ length: n }, async () => { while (i < items.length) { const k = i++; out[k] = await fn(items[k]); } })); return out; }
 
-async function buildSet(id) {
+// Conservador com o que ja existe (prev): nunca perde traducao, nunca tira carta, nao aceita total zerado.
+// A API as vezes publica a colecao em PT com traducao incompleta ou some com uma carta.
+async function buildSet(id, prev) {
   const en = await get(`${API}/en/sets/${encodeURIComponent(id)}`);
   const pt = await get(`${API}/pt/sets/${encodeURIComponent(id)}`, true);
   const ptName = new Map((pt && pt.cards || []).map(c => [c.localId, c.name]));
+  const old = new Map(((prev && prev.cards) || []).map(c => [c[0], c]));
   const cards = await pool(en.cards || [], 4, async c => {
     const d = await get(`${API}/en/cards/${encodeURIComponent(en.id + '-' + c.localId)}`);
-    const nEn = d.name || c.name, nPt = pt ? ptName.get(c.localId) : EN2PT.get(nEn); // colecao sem versao PT: nome da mesma carta em outra colecao
+    const o = old.get(c.localId), nEn = d.name || c.name;
+    const nPt = ptName.get(c.localId) || (o && o[2] ? o[1] : undefined) || (pt ? undefined : EN2PT.get(nEn)); // colecao sem versao PT: nome da mesma carta em outra colecao
     const rar = d.rarity == null ? '' : (RAR[d.rarity] ?? d.rarity);
-    return [c.localId, nPt || nEn, nPt && nPt !== nEn ? nEn : 0, rar, CAT[d.category] || '', (d.types && d.types[0]) || '', d.variants ? (d.variants.reverse ? 1 : 0) : 2]; // 2 = API nao informa (app trata como 'pode ter brilhante')
+    const rev = d.variants ? (d.variants.reverse ? 1 : 0) : o ? o[6] : 2; // 2 = API nao informa (app trata como 'pode ter brilhante')
+    return [c.localId, nPt || nEn, nPt && nPt !== nEn ? nEn : 0, rar, CAT[d.category] || '', (d.types && d.types[0]) || '', rev];
   });
-  const set = { id: en.id, s: en.serie.id, n: (pt && pt.name) || en.name, en: en.name, d: en.releaseDate, o: en.cardCount.official, t: cards.length, a: (en.abbreviation && en.abbreviation.official) || '' };
+  const seen = new Set(cards.map(c => c[0])); for (const c of old.values()) if (!seen.has(c[0])) cards.push(c); // carta que a API tirou continua
+  const p = prev && prev.set;
+  const set = { id: en.id, s: en.serie.id, n: (pt && pt.name) || en.name, en: en.name, d: en.releaseDate || (p && p.d), o: en.cardCount.official || (p && p.o) || cards.length, t: cards.length, a: (en.abbreviation && en.abbreviation.official) || (p && p.a) || '' };
   return { set, cards, serie: en.serie, ptSerie: pt && pt.serie };
 }
 
@@ -48,13 +55,14 @@ const byId = new Map(base.sets.map(s => [s.id, s]));
 // dicionario ingles -> portugues montado com o proprio catalogo (cartas que ja tem as duas versoes do nome)
 const EN2PT = new Map();
 for (const f of await fs.readdir(path.join(BASE, 's'))) for (const cs of Object.values(JSON.parse(await fs.readFile(path.join(BASE, 's', f), 'utf8')))) for (const c of cs) if (c[2] && !EN2PT.has(c[2])) EN2PT.set(c[2], c[1]);
+const files = new Map(); const loadFile = async sid => { if (!files.has(sid)) files.set(sid, JSON.parse(await fs.readFile(path.join(BASE, 's', sid + '.json'), 'utf8').catch(() => '{}'))); return files.get(sid); };
 const check = process.argv.indexOf('--check');
 
 if (check > 0) { // validação: reconstrói e compara com o que está salvo
   const ids = (process.argv[check + 1] || '').split(',').filter(Boolean); let diffs = 0;
   for (const id of ids) {
-    const old = byId.get(id); const oldCards = JSON.parse(await fs.readFile(path.join(BASE, 's', old.s + '.json'), 'utf8'))[id];
-    const { set, cards } = await buildSet(id);
+    const old = byId.get(id); const oldCards = (await loadFile(old.s))[id];
+    const { set, cards } = await buildSet(id, { set: old, cards: oldCards });
     for (const k of Object.keys(old)) if (old[k] !== set[k]) { diffs++; console.log(id, 'set.' + k, JSON.stringify(old[k]), '->', JSON.stringify(set[k])); }
     if (cards.length !== oldCards.length) { diffs++; console.log(id, 'qtd cartas', oldCards.length, '->', cards.length); }
     const om = new Map(oldCards.map(c => [c[0], c]));
@@ -75,10 +83,9 @@ for (const s of list) {
   if (recent(cur) || (s.cardCount && (s.cardCount.total !== cur.t || s.cardCount.official !== cur.o))) todo.push(s.id);
 }
 const series = new Map(base.series.map(x => [x.id, x]));
-const files = new Map(); const loadFile = async sid => { if (!files.has(sid)) files.set(sid, JSON.parse(await fs.readFile(path.join(BASE, 's', sid + '.json'), 'utf8').catch(() => '{}'))); return files.get(sid); };
 let added = 0, updated = 0; const failed = [];
 for (const id of todo) {
-  let r; try { r = await buildSet(id); } catch (e) { failed.push(id + ' (' + e.message.slice(0, 80) + ')'); continue; } // falhou: mantém a versão antiga
+  const cur = byId.get(id); let r; try { r = await buildSet(id, cur && { set: cur, cards: (await loadFile(cur.s))[id] }); } catch (e) { failed.push(id + ' (' + e.message.slice(0, 80) + ')'); continue; } // falhou: mantém a versão antiga
   if (SKIP_SERIES.has(r.set.s) || !r.cards.length || !r.set.d) continue;
   if (!series.has(r.set.s)) series.set(r.set.s, { id: r.set.s, name: (r.ptSerie && r.ptSerie.name) || r.serie.name, d: r.set.d });
   (await loadFile(r.set.s))[id] = r.cards;
