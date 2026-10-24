@@ -229,9 +229,27 @@ function renderSet() {
   ${list.length ? `<div class="grid">${list.map(c => cardTile(s.id, c)).join('')}</div>` : '<p class="empty">Nenhuma carta neste filtro.</p>'}`;
 }
 
-function renderSearch() { return `<input class="search" id="gq" type="search" placeholder="Nome (Charizard) ou número (045/198)" value="${esc(S.gq)}" autocomplete="off"><div id="results"></div>`; }
+const SR = { found: null, img: null, busy: false, err: '', ctl: null }; // busca por foto
+function renderSearch() { return `<input class="search" id="gq" type="search" placeholder="Nome (Charizard) ou número (045/198)" value="${esc(S.gq)}" autocomplete="off">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 12px"><button class="btn ghost" id="srCam">📷 Buscar por foto</button><button class="btn ghost" id="srGal">Foto da galeria</button></div><div id="results"></div>`; }
+// resultado da busca por foto: carta mais provavel primeiro e, ao lado, as outras versoes dela para conferir
+function photoResults(box) {
+  if (SR.busy) { box.innerHTML = '<p class="empty">Lendo a carta da foto…</p>'; return; }
+  let h = SR.err ? `<div class="banner">${esc(SR.err)}</div>` : ''; const pids = [];
+  if (!SR.err && !(SR.found || []).length) h += '<p class="empty">Não achei carta nessa foto. Tente de frente, com boa luz e a carta ocupando a foto.</p>';
+  for (const f of SR.found || []) {
+    const r = f.read; const lido = [r.name, r.number && (r.number + (r.total ? '/' + r.total : '')), r.set_code].filter(Boolean).join(' · ') || '—';
+    if (!f.cands.length) { h += `<p class="sync" style="margin:14px 0 6px">Lido: ${esc(lido)} · não está no catálogo (japonesa, coreana ou ilegível).</p>`; continue; }
+    const [id, c] = f.cands[0]; const have = qtyOf(id, c[0]); const cs = f.cands.slice(0, 6);
+    h += `<p class="sync" style="margin:14px 0 6px"><b style="color:${have ? 'var(--warn)' : 'var(--good)'}">${have ? 'Você já tem ' + haveTxt(id, c[0]) : 'Você não tem esta carta'}</b> · Lido: ${esc(lido)}${cs.length > 1 ? ' · a primeira é a mais provável' : ''}</p><div class="grid">${cs.map(([i2, c2]) => cardTile(i2, c2, 'name')).join('')}</div>`;
+    cs.forEach(([i2, c2]) => pids.push(i2 + '-' + c2[0]));
+  }
+  box.innerHTML = h + '<button class="btn ghost" id="srClear" style="width:100%;margin-top:14px">Limpar e buscar outra</button>';
+  if (pids.length) ensurePrices(pids, refreshPriceLabels);
+}
 function renderResults() {
   const box = $('#results'); if (!box) return;
+  if (SR.busy || SR.err || SR.found) return photoResults(box);
   const raw = S.gq.trim(); if (raw.length < 2) { box.innerHTML = '<p class="empty">Digite o nome do Pokémon ou o número impresso no canto da carta.</p>'; return; }
   if (!allLoaded) { box.innerHTML = '<p class="empty">Carregando o catálogo completo…</p>'; loadAll(); return; }
   const m = raw.match(/^0*(\d+)\s*\/\s*0*(\d+)$/); const q = norm(raw); const out = [];
@@ -706,6 +724,9 @@ document.addEventListener('click', async e => {
   if (t.id === 'trCancelDone') { TR.confirm = false; render(); return; }
   if (t.id === 'trApply') { applyTrade(); return; }
   if (t.id === 'trReset') { TR.give = {}; TR.get = {}; TR.found = null; TR.img = null; TR.confirm = false; TR.step = 'friend'; TM.found = null; render(); return; }
+  if (t.id === 'srCam') { $('#camFile').click(); return; }
+  if (t.id === 'srGal') { $('#galFile').click(); return; }
+  if (t.id === 'srClear') { SR.found = null; SR.err = ''; S.gq = ''; const q = $('#gq'); if (q) q.value = ''; renderResults(); return; }
   if (t.id === 'camBtn') { $('#camFile').click(); return; }
   if (t.id === 'galBtn') { $('#galFile').click(); return; }
   if (t.id === 'stopBtn') { if (SC.batch) SC.batch.stop = true; SC.ctl && SC.ctl.abort(); return; }
@@ -732,11 +753,11 @@ document.addEventListener('input', e => {
   if (e.target.id === 'setq') { S.q = e.target.value; clearTimeout(qT); qT = setTimeout(() => { const pos = e.target.selectionStart; render(); const el = $('#setq'); el.focus(); try { el.setSelectionRange(pos, pos); } catch { } }, 200); }
   if (e.target.id === 'mineq') { S.mineQ = e.target.value; clearTimeout(qT); qT = setTimeout(fillMine, 200); }
   if (e.target.id === 'trq') { TR.q = e.target.value; clearTimeout(qT); qT = setTimeout(renderTradeSearch, 250); }
-  if (e.target.id === 'gq') { S.gq = e.target.value; clearTimeout(qT); qT = setTimeout(renderResults, 250); }
+  if (e.target.id === 'gq') { S.gq = e.target.value; SR.found = null; SR.err = ''; clearTimeout(qT); qT = setTimeout(renderResults, 250); }
 });
 $('#snapFile').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f && S.snapKey) savePhoto(S.snapKey, f); });
 $('#importFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importCsv(f); e.target.value = ''; });
-['#camFile', '#galFile'].forEach(sel => $(sel).addEventListener('change', e => { const files = [...e.target.files].slice(0, 40); const f = files[0]; e.target.value = ''; if (!f) return; if (S.view === 'trade') { const T = TR.scanFor === 'mine' ? TM : TR; if (!T.busy) runScan(f, T, 'trade'); } else if (!SC.busy) { if (files.length > 1) runBatch(files); else runScan(f); } }));
+['#camFile', '#galFile'].forEach(sel => $(sel).addEventListener('change', e => { const files = [...e.target.files].slice(0, 40); const f = files[0]; e.target.value = ''; if (!f) return; if (S.view === 'trade') { const T = TR.scanFor === 'mine' ? TM : TR; if (!T.busy) runScan(f, T, 'trade'); } else if (S.view === 'search') { if (!SR.busy) runScan(f, SR, 'search'); } else if (!SC.busy) { if (files.length > 1) runBatch(files); else runScan(f); } }));
 
 /* ---------- boot ---------- */
 (async () => {
