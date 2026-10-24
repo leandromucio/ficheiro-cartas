@@ -158,8 +158,10 @@ function priceLinks(setId, c) {
   };
 }
 function cardTile(setId, c, showSet, mode, rev) {
-  const [no, name, , rar, cat, type] = c; const hasRev = c[6] !== 0;
+  const [no, name, , rar, cat, type] = c;
   const o = S.owned[setId] || {}; const qN = o[no] || 0, qR = o[no + REV] || 0, qAll = qN + qR;
+  // Linha Brilhante so aparece quando ha copia brilhante (o scan e quem cataloga a versao reverse)
+  const hasRev = c[6] !== 0 && qR > 0;
   const key = no + (rev ? REV : ''); const qThis = o[key] || 0;
   const tc = cat === 'T' ? 'var(--t-trainer)' : cat === 'E' ? 'var(--t-energy)' : `var(--t-${TYPE[type] || 'colorless'})`;
   const s = S.setById[setId]; const pid = setId + '-' + no; const L = priceLinks(setId, c);
