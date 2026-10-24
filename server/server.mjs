@@ -63,10 +63,12 @@ async function body(req, limit = 1_000_000) {
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.css': 'text/css', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 async function serveStatic(req, res, url) {
   let rel = decodeURIComponent(url.pathname); if (rel === '/' || !path.extname(rel)) rel = '/index.html';
-  const f = path.normalize(path.join(PUBLIC, rel)); if (!f.startsWith(PUBLIC)) return send(res, 403, { error: 'proibido' });
+  let f = path.normalize(path.join(PUBLIC, rel)); if (!f.startsWith(PUBLIC)) return send(res, 403, { error: 'proibido' });
+  // catalogo atualizado pelo update-catalog.mjs (DATA_DIR/catalog) tem prioridade sobre a copia da imagem
+  if (rel.startsWith('/data/')) { const c = path.normalize(path.join(DATA, 'catalog', rel.slice(6))); if (c.startsWith(path.join(DATA, 'catalog')) && await fs.stat(c).then(x => x.isFile(), () => false)) f = c; }
   try {
     const st = await fs.stat(f); if (!st.isFile()) throw 0;
-    const cache = rel.startsWith('/data/') ? 'public, max-age=86400' : rel === '/index.html' || rel === '/app.js' ? 'no-cache' : 'public, max-age=3600';
+    const cache = rel.startsWith('/data/') ? 'public, max-age=3600' : rel === '/index.html' || rel === '/app.js' ? 'no-cache' : 'public, max-age=3600';
     res.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream', 'Content-Length': st.size, 'Cache-Control': cache });
     fss.createReadStream(f).pipe(res);
   } catch { send(res, 404, { error: 'não encontrado' }); }
