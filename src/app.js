@@ -324,10 +324,12 @@ function scanResultTile(f, i, single) {
   if (!f.cands.length) return `<div class="candwrap"><span class="tag" style="color:var(--muted)">Não encontrada</span><div class="card miss"><span class="stripe"></span><span class="tap"><span class="cn">${esc(r.name || 'Ilegível')}</span><span class="rr">${esc([r.number && (r.number + (r.total ? '/' + r.total : '')), r.set_code].filter(Boolean).join(' · '))}${r.language && !/^(en|pt|es|fr|de|it)/i.test(r.language) ? ' · idioma ' + esc(r.language) + ' fora do catálogo' : ''}</span></span></div></div>`;
   const [id, c] = f.cands[0]; const have = qtyOf(id, c[0]);
   const alts = f.cands.slice(1).map(([i2, c2]) => `<option value="${esc(i2 + '|' + c2[0])}">${esc((S.setById[i2].a || i2) + ' ' + c2[0] + ' · ' + c2[1])}</option>`).join('');
-  const fin = f.read.finish === 'reverse' && c[6] !== 0 ? '<span class="tag" style="color:var(--accent)">✨ Lida como brilhante</span>' : '';
+  const fin = f.read.finish === 'reverse' && c[6] !== 0 ? '<span class="tag" style="color:var(--accent)">✨ Brilhante</span>' : '';
   const tag = fin + (f.added ? '<span class="tag">✓ Adicionada</span>' : f.conf < 7 ? '<span class="tag" style="color:var(--warn)">Confira a versão</span>' : have ? `<span class="tag" style="color:var(--warn)">Você já tem ${haveTxt(id, c[0])}</span>` : '<span class="tag">Nova</span>');
   const lido = `<span class="lido">Lido: ${esc([r.name, r.number && (r.number + (r.total ? '/' + r.total : '')), r.set_code].filter(Boolean).join(' · ') || '—')}</span>`;
-  return `<div class="candwrap">${tag}${lido}${cardTile(id, c, 'name')}${alts ? `<select class="altsel" data-salt="${i}"><option value="">Outra versão?</option>${alts}</select>` : ''}${single ? `<button class="usephoto" data-usephoto="${esc(id + '|' + c[0])}">Usar minha foto como imagem</button>` : ''}</div>`;
+  const rv = isRev(scanKey(f, c));
+  const tgl = c[6] !== 0 && !f.added ? `<button class="usephoto" data-fin="${i}">${rv ? 'Não é brilhante? Trocar para Normal' : 'É brilhante? Trocar para ✨ Brilhante'}</button>` : '';
+  return `<div class="candwrap">${tag}${lido}${cardTile(id, c, 'name', 'mine', rv)}${tgl}${alts ? `<select class="altsel" data-salt="${i}"><option value="">Outra versão?</option>${alts}</select>` : ''}${single ? `<button class="usephoto" data-usephoto="${esc(id + '|' + c[0])}">Usar minha foto como imagem</button>` : ''}</div>`;
 }
 const scanKey = (f, c) => c[0] + (f.read.finish === 'reverse' && c[6] !== 0 ? REV : '');
 const numKey = v => { v = String(v || '').toUpperCase().replace(/\s/g, ''); const m = v.match(/^([A-Z]*)0*(\d+)([A-Z]*)$/); return m ? m[1] + m[2] + m[3] : v; };
@@ -701,6 +703,7 @@ document.addEventListener('click', async e => {
   if (t.dataset.add || t.dataset.sub) { const [id, no] = (t.dataset.add || t.dataset.sub).split('|'); bump(id, no, t.dataset.add ? 1 : -1); const y = window.scrollY; if (S.view === 'search') renderResults(); else render(); window.scrollTo(0, y); return; }
   if (t.dataset.usephoto) { const f = SC.found && SC.found.find(x => x.cands.length && x.cands[0][0] + '|' + x.cands[0][1][0] === t.dataset.usephoto); if (f && f.file) savePhoto(t.dataset.usephoto, f.file, f.box); return; }
   if (t.dataset.rot) { rotatePhoto(t.dataset.rot); return; }
+  if (t.dataset.fin != null && SC.found) { const f = SC.found[+t.dataset.fin]; if (f) { f.read.finish = f.read.finish === 'reverse' ? 'normal' : 'reverse'; render(); } return; }
   if (t.dataset.snap) { S.snapKey = t.dataset.snap; $('#snapFile').click(); return; }
   if (t.dataset.msort) { S.mineSort = t.dataset.msort; render(); return; }
   if (t.dataset.mfilter) { S.mineFilter = t.dataset.mfilter; render(); return; }
