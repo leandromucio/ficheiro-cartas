@@ -15,8 +15,8 @@ function setSync(t) { $('#syncState').textContent = t ? '· ' + t : ''; }
 const REV = '~r'; const baseNo = k => String(k).replace(/~r$/, ''); const isRev = k => /~r$/.test(k);
 const qtyOf = (id, no) => { const o = S.owned[id] || {}; return (o[no] || 0) + (o[no + REV] || 0); };
 const haveTxt = (id, no) => { const o = S.owned[id] || {}, n = o[no] || 0, r = o[no + REV] || 0; return r ? (n ? `${n} normal + ${r} ✨ brilhante` : `${r} ✨ brilhante`) : String(n); };
-function ownedCount(id) { const o = S.owned[id]; if (!o) return { u: 0, c: 0, r: 0 }; const seen = new Set(); let c = 0, r = 0; for (const k in o) { const q = o[k]; if (q > 0) { seen.add(baseNo(k)); c += q; if (q > 1) r += q - 1; } } return { u: seen.size, c, r }; }
-function totals() { let u = 0, c = 0, r = 0, st = 0; for (const id in S.owned) { const x = ownedCount(id); u += x.u; c += x.c; r += x.r; if (x.u) st++; } return { u, c, r, st }; }
+function ownedCount(id) { const o = S.owned[id]; if (!o) return { u: 0, c: 0, r: 0 }; const seen = new Set(); let c = 0, r = 0, v = 0; for (const k in o) { const q = o[k]; if (q > 0) { seen.add(baseNo(k)); v++; c += q; if (q > 1) r += q - 1; } } return { u: seen.size, v, c, r }; }
+function totals() { let u = 0, v = 0, c = 0, r = 0, st = 0; for (const id in S.owned) { const x = ownedCount(id); u += x.u; v += x.v; c += x.c; r += x.r; if (x.u) st++; } return { u, v, c, r, st }; }
 
 /* ---------- catalog ---------- */
 const serieReq = {};
@@ -132,7 +132,7 @@ function renderHome() {
   const t = totals();
   const cv = collectionValue();
   let h = `<div class="stats">
-    <button class="stat" data-go="mine"><b>${t.u}</b><span>Cartas diferentes</span><i>${t.c} cópias no total</i></button>
+    <button class="stat" data-go="mine"><b>${t.v}</b><span>Cartas diferentes</span><i>${t.c} cópias no total</i></button>
     <button class="stat" data-go="trade"><b>${t.r}</b><span>Repetidas</span><i>para trocar →</i></button>
     <button class="stat" data-go="mine"><b>${t.st}</b><span>Coleções</span><i>iniciadas</i></button>
     <button class="stat" data-go="mine"><b id="homeVal">${cv.v ? shortBrl(cv.v) : (t.u ? '…' : 'R$ 0')}</b><span>Valor estimado</span><i>ver detalhes →</i></button>
@@ -174,10 +174,10 @@ function cardTile(setId, c, showSet, mode, rev) {
   const qtyBtns = k => { const q = o[k] || 0; return `${q ? `<button data-sub="${esc(setId)}|${esc(k)}" aria-label="Tirar uma">−</button><b class="${q > 1 ? 'rep' : ''}">${q}</b>` : ''}<button class="plus" data-add="${esc(setId)}|${esc(k)}" aria-label="Somar uma">+</button>`; };
   const revRow = !mode && hasRev ? `<span class="revrow"><span class="rl">✨ Brilhante</span><span class="val" data-pid="${esc(pid)}" data-rev="1">${priceText(pid, true)}</span><span class="rq">${qtyBtns(no + REV)}</span></span>` : '';
   return `<div class="card ${dim ? 'miss' : ''} ${mode === 'in' && !qAll ? 'want' : ''}" style="--tc:${tc}"><span class="stripe"></span>
-  ${img}${tradeBadge(setId, no, qAll, mode)}<button class="tap" ${tapAttr} aria-label="${mode === 'in' ? 'Receber' : mode === 'out' ? 'Dar' : 'Adicionar'} ${esc(name)}">${label}</button>
+  ${img}${tradeBadge(setId, no, qAll, mode, rev)}<button class="tap" ${tapAttr} aria-label="${mode === 'in' ? 'Receber' : mode === 'out' ? 'Dar' : 'Adicionar'} ${esc(name)}">${label}</button>
   <span class="px">${!mode && hasRev ? '<span class="rl">Normal</span>' : ''}<span class="val" data-pid="${esc(pid)}" data-rev="${mode && rev ? 1 : 0}">${priceText(pid, mode && rev)}</span><a href="${L.liga}" target="_blank" rel="noopener">Liga</a><a href="${L.tcg}" target="_blank" rel="noopener">TCGplayer</a></span>
   ${revRow}
-  ${mode === 'view' ? '' : mode ? tradeQty(setId, key, mode) : `<span class="qty">${qtyBtns(no)}</span>`}</div>`;
+  ${mode === 'view' ? '' : mode === 'mine' ? `<span class="qty">${qtyBtns(key)}</span>` : mode ? tradeQty(setId, key, mode) : `<span class="qty">${qtyBtns(no)}</span>`}</div>`;
 }
 // foto propria (servida por /api/photo) ganha o botao de girar
 document.addEventListener('load', e => {
@@ -237,7 +237,7 @@ function renderMine() {
   ensurePrices(keys, () => { if (S.view !== 'mine') return; const el = $('#cval'); if (el) el.innerHTML = valueHtml(collectionValue()); if (S.mineSort === 'valor') fillMine(); else refreshPriceLabels(); });
   const chip = (k, v, l) => `<button class="chip" data-${k}="${v}" aria-pressed="${(k === 'msort' ? S.mineSort : S.mineFilter) === v}">${l}</button>`;
   return `<div class="value" id="cval">${valueHtml(cv)}</div>
-  <div class="chips">${chip('mfilter', 'all', 'Todas · ' + t.u)}${chip('mfilter', 'rep', 'Repetidas · ' + myRepeats().length)}</div>
+  <div class="chips">${chip('mfilter', 'all', 'Todas · ' + t.v)}${chip('mfilter', 'rep', 'Repetidas · ' + myRepeats().length)}</div>
   <div class="chips"><span class="sync" style="align-self:center">Ordenar:</span>${chip('msort', 'valor', 'Maior valor')}${chip('msort', 'colecao', 'Coleção')}${chip('msort', 'nome', 'Nome')}</div>
   <input class="search" id="mineq" type="search" placeholder="Filtrar suas cartas" value="${esc(S.mineQ)}" autocomplete="off">
   <div id="mineGrid" class="grid"><p class="empty">Carregando suas cartas…</p></div>
@@ -249,7 +249,8 @@ async function fillMine() {
   const ids = Object.keys(S.owned).filter(id => S.setById[id]);
   await Promise.all([...new Set(ids.map(id => S.setById[id].s))].map(sid => loadSerie(sid).catch(() => { })));
   let items = [];
-  for (const id of ids) { const done = new Set(); for (const k in S.owned[id]) { const no = baseNo(k); if (done.has(no) || !(qtyOf(id, no) > 0)) continue; done.add(no); const c = (S.cards[id] || []).find(x => x[0] === no); if (c) { const o = S.owned[id]; items.push({ id, c, q: qtyOf(id, no), rep: (o[no] || 0) > 1 || (o[no + REV] || 0) > 1, v: Math.max(priceBrl(id + '-' + no) || 0, (o[no + REV] ? priceBrl(id + '-' + no, true) : 0) || 0), s: S.setById[id] }); } } }
+  // um card por versao: normal e brilhante da mesma carta aparecem separados
+  for (const id of ids) { const o = S.owned[id]; for (const k in o) { if (!(o[k] > 0)) continue; const no = baseNo(k), rev = isRev(k); const c = (S.cards[id] || []).find(x => x[0] === no); if (c) items.push({ id, c, rev, q: o[k], rep: o[k] > 1, v: priceBrl(id + '-' + no, rev) || 0, s: S.setById[id] }); } }
   if (S.mineFilter === 'rep') items = items.filter(x => x.rep);
   const q = norm(S.mineQ.trim()); if (q) items = items.filter(x => norm(x.c[1]).includes(q) || norm(x.c[2] || '').includes(q) || norm(x.s.n).includes(q) || norm(x.s.en || '').includes(q));
   const col = new Intl.Collator('pt-BR', { numeric: true });
@@ -257,7 +258,7 @@ async function fillMine() {
   else if (S.mineSort === 'nome') items.sort((a, b) => col.compare(a.c[1], b.c[1]));
   else items.sort((a, b) => (b.s.d || '').localeCompare(a.s.d || '') || col.compare(a.c[0], b.c[0]));
   const el = $('#mineGrid'); if (!el) return;
-  el.innerHTML = items.length ? items.map(x => cardTile(x.id, x.c, 'name')).join('') : '<p class="empty">Nenhuma carta neste filtro.</p>';
+  el.innerHTML = items.length ? items.map(x => cardTile(x.id, x.c, 'name', 'mine', x.rev)).join('') : '<p class="empty">Nenhuma carta neste filtro.</p>';
 }
 function valueHtml(cv) { return `<span class="sub">Valor estimado da coleção</span><span class="big">${brl(cv.v)}</span><span class="sub">${cv.priced} de ${cv.n} cartas com preço${cv.priced < cv.n ? ' (buscando o resto…)' : ''}. Base: TCGplayer (US$) ou Cardmarket (€)${S.fx && S.fx.usdBrl ? ', dólar a ' + brl(S.fx.usdBrl) : ''}. Mercado brasileiro pode variar.</span>`; }
 async function fillReps() {
@@ -463,7 +464,8 @@ const TM = { found: null, img: null, busy: false, err: '', ctl: null };
 const splitKey = k => { const i = k.lastIndexOf('|'); return [k.slice(0, i), k.slice(i + 1)]; };
 const cardByKey = k => { const [id, no] = splitKey(k); const c = (S.cards[id] || []).find(x => x[0] === baseNo(no)); return c ? [id, c, isRev(no)] : null; };
 function rerenderKeep() { const y = window.scrollY; if (S.view === 'trade') { render(); } else render(); window.scrollTo(0, y); }
-function tradeBadge(setId, no, q, mode) {
+function tradeBadge(setId, no, q, mode, rev) {
+  if (mode === 'mine') return rev ? '<span class="tb rev">✨ Brilhante</span>' : '';
   if (mode !== 'in') return '';
   return q > 0 ? `<span class="tb have">Você tem ${q}</span>` : `<span class="tb need">Não tenho</span>`;
 }
