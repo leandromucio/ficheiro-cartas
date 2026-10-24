@@ -92,7 +92,12 @@ const photoFile = (uid, k) => p('users', uid, 'photos', k.replace('|', '__') + '
 async function photo(req, res, u, url) {
   if (req.method === 'GET') {
     const k = url.searchParams.get('k'); if (!okKey(k)) return send(res, 400, { error: 'chave' });
-    try { const b = await fs.readFile(photoFile(u.id, k)); return send(res, 200, b, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=86400' }); }
+    // no-cache + ETag: foto regravada (girada/trocada) aparece na hora; sem mudanca responde 304
+    try {
+      const f = photoFile(u.id, k); const st = await fs.stat(f); const tag = `"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`;
+      if (req.headers['if-none-match'] === tag) { res.writeHead(304, { ETag: tag, 'Cache-Control': 'private, no-cache' }); return res.end(); }
+      return send(res, 200, await fs.readFile(f), { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, no-cache', ETag: tag });
+    }
     catch { return send(res, 404, { error: 'sem foto' }, { 'Cache-Control': 'private, max-age=60' }); }
   }
   if (req.method === 'PUT') {
