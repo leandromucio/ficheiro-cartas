@@ -51,6 +51,17 @@ async function flush() {
 }
 window.addEventListener('beforeunload', e => { if (saveT || saving) { flush(); e.preventDefault(); } });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && saveT) { clearTimeout(saveT); flush(); } });
+// puxar para atualizar: o app instalado na Tela de Inicio do iPhone nao tem esse gesto
+async function refreshApp() { if (saveT) { clearTimeout(saveT); await flush(); } else if (saving) await new Promise(r => setTimeout(r, 1500)); location.reload(); }
+(() => {
+  if (!(navigator.standalone || matchMedia('(display-mode: standalone)').matches)) return; // no navegador o gesto ja existe
+  const el = document.createElement('div'); el.id = 'ptr'; document.body.appendChild(el); let y0 = null, ok = false;
+  const reset = () => { y0 = null; ok = false; el.style.transform = ''; el.className = ''; };
+  addEventListener('touchstart', e => { y0 = window.scrollY <= 0 && e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
+  addEventListener('touchmove', e => { if (y0 == null) return; const d = e.touches[0].clientY - y0; if (d <= 10) { el.className = ''; el.style.transform = ''; return; } ok = d > 90; el.textContent = ok ? '↻ Solte para atualizar' : '↓ Puxe para atualizar'; el.className = 'show' + (ok ? ' ok' : ''); el.style.transform = `translate(-50%, ${Math.min(d, 130) - 50}px)`; }, { passive: true });
+  addEventListener('touchend', () => { if (ok) { el.textContent = 'Atualizando…'; el.className = 'show ok'; refreshApp(); return; } reset(); }, { passive: true });
+  addEventListener('touchcancel', reset, { passive: true });
+})();
 
 async function loadCollection() {
   try { const v = localStorage.getItem(cacheKey()); if (v) S.owned = JSON.parse(v) || {}; } catch { }

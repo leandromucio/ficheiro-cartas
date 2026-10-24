@@ -142,6 +142,9 @@ img{max-width:100%}
 .tb.need{background:var(--good);color:#fff}
 .tb.have{background:var(--surface);color:var(--muted);box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .tb.rev{background:linear-gradient(135deg,#f6d365,#c3a6ff 55%,#7fd6ff);color:#141B2D;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+#ptr{position:fixed;top:0;left:50%;transform:translate(-50%,-60px);z-index:50;padding:8px 14px;border-radius:999px;background:var(--surface);color:var(--muted);font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .15s}
+#ptr.show{opacity:1}
+#ptr.ok{color:var(--accent)}
 .tradebar{position:sticky;top:calc(env(safe-area-inset-top,0px) + 58px);z-index:4;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--surface);border-radius:var(--r);padding:10px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 .tradebar div{display:grid;gap:2px;text-align:center}
 .tradebar .sub{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
