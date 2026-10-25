@@ -312,6 +312,7 @@ function renderScan() {
     if (!SC.found.length && !SC.busy) h += `<p class="empty">Não encontrei cartas. Tente mais perto, com o número legível.</p>`;
     const pending = SC.found.filter(f => f.cands.length && !f.added);
     const doubt = pending.filter(f => f.conf < 7).length;
+    if (pending.some(f => f.read.finish === 'reverse') && !SC.busy) h += `<button class="btn ghost" id="finAllN" style="width:100%;margin-bottom:6px">Nenhuma é brilhante? Marcar todas como normal</button>`;
     if (pending.length > 1 && !SC.busy) h += `<button class="btn" id="addAllBtn" style="width:100%;margin-bottom:6px">Adicionar as ${pending.length} cartas à coleção</button>${doubt ? `<p class="sync" style="margin:0 0 10px">${doubt} marcada(s) com <b style="color:var(--warn)">confira</b>: o número não foi lido, então a versão pode estar errada. Use "Outra versão?" se precisar.</p>` : ''}`;
     const single = SC.found.length === 1;
     h += `<div class="grid">${SC.found.map((f, i) => scanResultTile(f, i, single)).join('')}</div>`;
@@ -727,6 +728,7 @@ document.addEventListener('click', async e => {
   if (t.id === 'trCancelDone') { TR.confirm = false; render(); return; }
   if (t.id === 'trApply') { applyTrade(); return; }
   if (t.id === 'trReset') { TR.give = {}; TR.get = {}; TR.found = null; TR.img = null; TR.confirm = false; TR.step = 'friend'; TM.found = null; render(); return; }
+  if (t.id === 'finAllN') { (SC.found || []).forEach(f => { if (!f.added) f.read.finish = 'normal'; }); render(); return; }
   if (t.id === 'srCam') { $('#camFile').click(); return; }
   if (t.id === 'srGal') { $('#galFile').click(); return; }
   if (t.id === 'srClear') { SR.found = null; SR.err = ''; S.gq = ''; const q = $('#gq'); if (q) q.value = ''; renderResults(); return; }
