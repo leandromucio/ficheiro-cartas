@@ -189,7 +189,7 @@ function cardTile(setId, c, showSet, mode, rev) {
   ${img}${tradeBadge(setId, no, qAll, mode, rev)}<button class="tap" ${tapAttr} aria-label="${mode === 'in' ? 'Receber' : mode === 'out' ? 'Dar' : 'Adicionar'} ${esc(name)}">${label}</button>
   <span class="px">${!mode && hasRev ? '<span class="rl">Normal</span>' : ''}<span class="val" data-pid="${esc(pid)}" data-rev="${mode && rev ? 1 : 0}">${priceText(pid, mode && rev)}</span><a href="${L.liga}" target="_blank" rel="noopener">Liga</a><a href="${L.tcg}" target="_blank" rel="noopener">TCGplayer</a></span>
   ${revRow}
-  ${mode === 'view' ? '' : mode === 'mine' ? `<span class="qty">${qtyBtns(key)}</span>` : mode ? tradeQty(setId, key, mode) : `<span class="qty">${qtyBtns(no)}</span>`}</div>`;
+  ${mode === 'view' ? '' : mode === 'mine' ? `<span class="qty">${S.view === 'mine' && !S.mineEdit ? `<b class="${qThis > 1 ? 'rep' : ''}">${qThis}</b>` : qtyBtns(key)}</span>` : mode ? tradeQty(setId, key, mode) : `<span class="qty">${qtyBtns(no)}</span>`}</div>`;
 }
 // foto propria (servida por /api/photo) ganha o botao de girar
 document.addEventListener('load', e => {
@@ -268,6 +268,7 @@ function renderMine() {
   const chip = (k, v, l) => `<button class="chip" data-${k}="${v}" aria-pressed="${(k === 'msort' ? S.mineSort : S.mineFilter) === v}">${l}</button>`;
   return `<div class="value" id="cval">${valueHtml(cv)}</div>
   <div class="chips">${chip('mfilter', 'all', 'Todas · ' + t.v)}${chip('mfilter', 'rep', 'Repetidas · ' + myRepeats().length)}</div>
+  <button class="btn ${S.mineEdit ? '' : 'ghost'}" id="mineEdit" style="width:100%;margin:0 0 10px">${S.mineEdit ? '✓ Pronto' : '✎ Editar quantidades'}</button>
   <div class="chips"><span class="sync" style="align-self:center">Ordenar:</span>${chip('msort', 'valor', 'Maior valor')}${chip('msort', 'colecao', 'Coleção')}${chip('msort', 'nome', 'Nome')}</div>
   <input class="search" id="mineq" type="search" placeholder="Filtrar suas cartas" value="${esc(S.mineQ)}" autocomplete="off">
   <div id="mineGrid" class="grid"><p class="empty">Carregando suas cartas…</p></div>
@@ -728,6 +729,7 @@ document.addEventListener('click', async e => {
   if (t.id === 'trCancelDone') { TR.confirm = false; render(); return; }
   if (t.id === 'trApply') { applyTrade(); return; }
   if (t.id === 'trReset') { TR.give = {}; TR.get = {}; TR.found = null; TR.img = null; TR.confirm = false; TR.step = 'friend'; TM.found = null; render(); return; }
+  if (t.id === 'mineEdit') { S.mineEdit = !S.mineEdit; const y = window.scrollY; render(); window.scrollTo(0, y); return; }
   if (t.id === 'finAllN') { (SC.found || []).forEach(f => { if (!f.added) f.read.finish = 'normal'; }); render(); return; }
   if (t.id === 'srCam') { $('#camFile').click(); return; }
   if (t.id === 'srGal') { $('#galFile').click(); return; }
